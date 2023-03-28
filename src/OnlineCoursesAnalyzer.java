@@ -3,6 +3,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  *
@@ -46,12 +47,51 @@ public class OnlineCoursesAnalyzer {
 
     //1
     public Map<String, Integer> getPtcpCountByInst() {
-        return null;
+        return courses.stream()
+                .collect(
+                        Collectors.groupingBy(
+                                c -> c.institution,
+                                Collectors.summingInt(Course::getParticipants)
+                        )
+                )
+                .entrySet()
+                .stream()
+                .sorted(Map.Entry.comparingByKey())
+                .collect(
+                        Collectors.toMap(
+                                Map.Entry::getKey,
+                                Map.Entry::getValue,
+                                (oldVal, newVal) -> oldVal,
+                                LinkedHashMap::new
+                        )
+                );
     }
 
     //2
     public Map<String, Integer> getPtcpCountByInstAndSubject() {
-        return null;
+        return courses.stream()
+                .collect(
+                        Collectors.groupingBy(
+                                c -> c.institution+"-"+c.subject,
+                                Collectors.summingInt(Course::getParticipants)
+                        )
+                )
+                .entrySet()
+                .stream()
+                .sorted(
+                        (e1,e2) -> (Objects.equals(e1.getValue(), e2.getValue()) ?
+                                e1.getKey().compareTo(e2.getKey()) :
+                                Integer.compare(e2.getValue(), e1.getValue())
+                        )
+                )
+                .collect(
+                        Collectors.toMap(
+                                Map.Entry::getKey,
+                                Map.Entry::getValue,
+                                (oldVal, newVal) -> oldVal,
+                                LinkedHashMap::new
+                        )
+                );
     }
 
     //3
@@ -61,12 +101,40 @@ public class OnlineCoursesAnalyzer {
 
     //4
     public List<String> getCourses(int topK, String by) {
-        return null;
+        return courses.stream()
+                .sorted(
+                        (c1, c2) -> (
+                                by.equals("hours")?(
+                                        c1.totalHours==c2.totalHours?
+                                                c1.title.compareTo(c2.title):
+                                                Double.compare(c2.totalHours,c1.totalHours)
+                                ):(
+                                        c1.participants==c2.participants?
+                                                c1.title.compareTo(c2.title):
+                                                Integer.compare(c2.participants,c1.participants)
+                                )
+                        )
+                )
+                .map((c) -> c.title)
+                .distinct()
+                .limit(topK)
+                .collect(Collectors.toList());
     }
 
     //5
     public List<String> searchCourses(String courseSubject, double percentAudited, double totalCourseHours) {
-        return null;
+        return courses.stream()
+                .filter(
+                        (c) -> (
+                                c.subject.toLowerCase().contains(courseSubject.toLowerCase()) &&
+                                c.percentAudited >= percentAudited &&
+                                c.totalHours <= totalCourseHours
+                        )
+                )
+                .map(c -> c.title)
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
     }
 
     //6
@@ -139,5 +207,9 @@ class Course {
         this.percentMale = percentMale;
         this.percentFemale = percentFemale;
         this.percentDegree = percentDegree;
+    }
+
+    int getParticipants(){
+        return participants;
     }
 }
