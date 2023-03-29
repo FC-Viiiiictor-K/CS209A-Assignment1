@@ -3,6 +3,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -96,7 +97,40 @@ public class OnlineCoursesAnalyzer {
 
     //3
     public Map<String, List<List<String>>> getCourseListOfInstructor() {
-        return null;
+        Map<String, List<List<String>>> result=new HashMap<>();
+        courses.forEach(
+                (c) -> {
+                    if(c.instructors.contains(",")){
+                        for(String i:c.instructors.split(",")){
+                            result.merge(
+                                    i.trim(),
+                                    new ArrayList<>(Arrays.asList(new ArrayList<>(), new ArrayList<>(Collections.singletonList(c.title)))),
+                                    (oldVal, newVal) -> {
+                                        if(!oldVal.get(1).contains(newVal.get(1).get(0))){
+                                            oldVal.get(1).add(newVal.get(1).get(0));
+                                            oldVal.get(1).sort(String::compareTo);
+                                        }
+                                        return oldVal;
+                                    }
+                            );
+                        }
+                    }
+                    else{
+                        result.merge(
+                                c.instructors.trim(),
+                                new ArrayList<>(Arrays.asList(new ArrayList<>(Collections.singletonList(c.title)), new ArrayList<>())),
+                                (oldVal, newVal) -> {
+                                    if(!oldVal.get(0).contains(newVal.get(0).get(0))){
+                                        oldVal.get(0).add(newVal.get(0).get(0));
+                                        oldVal.get(0).sort(String::compareTo);
+                                    }
+                                    return oldVal;
+                                }
+                        );
+                    }
+                }
+        );
+        return result;
     }
 
     //4
@@ -139,7 +173,40 @@ public class OnlineCoursesAnalyzer {
 
     //6
     public List<String> recommendCourses(int age, int gender, int isBachelorOrHigher) {
-        return null;
+        return courses.stream()
+                .collect(Collectors.groupingBy(c -> c.number))
+                .entrySet()
+                .stream()
+                .map(
+                        entry -> {
+                            double avgAge = entry.getValue().stream()
+                                    .collect(Collectors.averagingDouble(Course::getMedianAge));
+                            double avgMale = entry.getValue().stream()
+                                    .collect(Collectors.averagingDouble(Course::getPercentMale));
+                            double avgDegree = entry.getValue().stream()
+                                    .collect(Collectors.averagingDouble(Course::getPercentDegree));
+                            return new AbstractMap.SimpleImmutableEntry<>(
+                                    entry.getValue().stream()
+                                            .max(Comparator.comparing(c -> c.launchDate))
+                                            .get()
+                                            .title,
+                                    Math.pow(age-avgAge,2)+
+                                            Math.pow(gender*100-avgMale,2)+
+                                            Math.pow(isBachelorOrHigher*100-avgDegree,2)
+                            );
+                        }
+                )
+                .sorted(
+                        (e1, e2) -> (
+                                e1.getValue().equals(e2.getValue())?
+                                        e1.getKey().compareTo(e2.getKey()):
+                                        e1.getValue().compareTo(e2.getValue())
+                        )
+                )
+                .map(AbstractMap.SimpleImmutableEntry::getKey)
+                .distinct()
+                .limit(10)
+                .toList();
     }
 
 }
@@ -211,5 +278,17 @@ class Course {
 
     int getParticipants(){
         return participants;
+    }
+
+    double getMedianAge(){
+        return medianAge;
+    }
+
+    double getPercentMale(){
+        return percentMale;
+    }
+
+    double getPercentDegree(){
+        return percentDegree;
     }
 }
